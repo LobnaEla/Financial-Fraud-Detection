@@ -1,0 +1,1 @@
+Lenna n7otou l dataset initial fi raw, w baad ma naamlou l traitement wel feature eng fel pipeline nstoriwah fi processed
