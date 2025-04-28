@@ -1,0 +1,3 @@
+lezem nfusionniw les  notebooks mtaa eda fi wa7da bark w nnadhmouha bch tkoun structurée bel behi (en même temps twalli 7adhra w ashal bch na3mlou l documentation mtaa l insights fel rapport, 5ali wa9tha en mm temps)
+
+w zeda ma3adech nest7a9ou l notebook model, bch naamlou wahda okhra par exp fraud-detection.ipynb elli bch ykoun fiha l pipeline w t3ayat lel functions men src
