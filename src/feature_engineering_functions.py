@@ -6,7 +6,7 @@ import hashlib
 from sklearn.preprocessing import LabelEncoder
 import os
 import pickle
-
+import datetime
 # --------------- 1. Feature engineering transaction ---------------
 
 def categorize_hour_of_day(hour):
@@ -24,7 +24,7 @@ def log_transform_transaction_amt(transaction):
     return transaction
 
 def outlier(transaction):
-    with open('../notebooks/outlier_bounds.pkl', 'rb') as f:
+    with open('src\outlier_bounds.pkl', 'rb') as f:
         outlier_bounds = pickle.load(f)
     for col, (lower, upper) in outlier_bounds.items():
         if col in transaction.columns:
@@ -35,26 +35,9 @@ def outlier(transaction):
     return transaction
 
 
-
-def add_productcd_day_features(transaction):
-   
-    train_grouped = pd.read_pickle('../notebooks/train_grouped.pkl')
-    product_cd = transaction['ProductCD']
-    dt_d = transaction['DT_D']
-    
-    # Pour 'train' - Regroupement basé sur ProductCD et DT_D
-    group_train = train_grouped[(train_grouped['ProductCD'] == product_cd) & (train_grouped['DT_D'] == dt_d)]
-    if not group_train.empty:
-        transaction[f'ProductCD_{product_cd}_Day'] = group_train['count'].values[0]
-    else:
-        transaction[f'ProductCD_{product_cd}_Day'] = 0
-
-    return transaction
-
-
 def alertfeature_transaction(transaction):
     transaction['alertFeature'] = transaction['hour'].apply(categorize_hour_of_day)
-    return 
+    return transaction
 
 def extract_device_info_from_transaction(transaction):
     # Apply per row
@@ -101,8 +84,8 @@ def compute_transaction_date_features(transaction, start_date='2017-11-30'):
     # Conversion de START_DATE en datetime
     startdate = datetime.datetime.strptime(start_date, '%Y-%m-%d')
     
-    # Calcul de la date à partir de TransactionDT
-    transaction['TransactionDT_date'] = startdate + datetime.timedelta(seconds=transaction['TransactionDT'])
+    # Calcul de la date à partir de TransactionDT (en secondes depuis le start_date)
+    transaction['TransactionDT_date'] = startdate + pd.to_timedelta(transaction['TransactionDT'], unit='s')
     
     # Calcul de DT_D, DT_W et DT_M
     transaction['DT_D'] = ((transaction['TransactionDT_date'].dt.year - 2017) * 365 + transaction['TransactionDT_date'].dt.dayofyear).astype(np.int16)
@@ -111,27 +94,25 @@ def compute_transaction_date_features(transaction, start_date='2017-11-30'):
     
     return transaction
 
+
 def normalize_d_column_times(transaction):
     transaction_dt = transaction['TransactionDT']
     for i in range(1, 16):
         if i in [1, 2, 3, 5, 9]:
             continue
         col = f'D{i}'
-        if col in transaction and not pd.isnull(transaction[col]):
+        if col in transaction and not transaction[col].isnull().all():  # vérifier si toute la colonne n'est pas NaN
             transaction[col] = transaction[col] - transaction_dt / np.float32(24 * 60 * 60)
     return transaction
 
 
 def label_encode_transaction(transaction):
-    with open('../notebooks/label_encoders.pkl', 'rb') as f:
+    with open('src/label_encoders.pkl', 'rb') as f:
         label_encoders = pickle.load(f)
 
     for col, mapping in label_encoders.items():
         if col in transaction.columns:
-            if transaction[col] in mapping:
-                transaction[col] = mapping[transaction[col]]
-            else:
-                transaction[col] = -1  # code inconnu si jamais la valeur n'existe pas
+            transaction[col] = transaction[col].apply(lambda x: mapping.get(x, -1))  # Utilise -1 pour les valeurs inconnues
 
     return transaction
 
@@ -143,8 +124,49 @@ def missing(transaction, fill_value=-999):
             transaction[key] = fill_value
     return transaction
 
-def productid(transaction):
-    transaction['ProductID'] = str(transaction['TransactionAmt']) + '_' + str(transaction['ProductCD'])
+from sklearn.preprocessing import LabelEncoder
+import pickle
+
+import pickle
+
+import pandas as pd
+import pickle
+
+import pandas as pd
+import pickle
+
+def productid(transaction, label_encoder_path='src/productid_labelencoder.pkl'):
+    if transaction is None :
+        raise ValueError("L'entrée doit être une ligne (pd.Series) non nulle.")
+    
+    # Conversion des types de données pour éviter les erreurs avec les modèles
+    # Convertir les dates en timestamp (secondes depuis 1970-01-01)
+    if 'TransactionDT_date' in transaction and isinstance(transaction['TransactionDT_date'], pd.Timestamp):
+        transaction['TransactionDT_date'] = transaction['TransactionDT_date'].timestamp()
+
+    # Convertir les colonnes 'uid' et 'device_hash' en catégories (ou les encoder si nécessaire)
+    if 'uid' in transaction and isinstance(transaction['uid'], str):
+        transaction['uid'] = hash(transaction['uid'])  # Ou utiliser LabelEncoder si nécessaire
+    if 'device_hash' in transaction and isinstance(transaction['device_hash'], str):
+        transaction['device_hash'] = hash(transaction['device_hash'])  # Ou LabelEncoder aussi
+
+    # Récupérer les valeurs de manière sûre
+    f1 = str(transaction['TransactionAmt']) if pd.notnull(transaction.get('TransactionAmt')) else ''
+    f2 = str(transaction['ProductCD']) if pd.notnull(transaction.get('ProductCD')) else ''
+
+    combined_value = f1 + '_' + f2
+    transaction['ProductID_raw'] = combined_value
+
+    # Charger le label encoder
+    with open(label_encoder_path, 'rb') as f:
+        le = pickle.load(f)
+
+    # Encoder la combinaison
+    if combined_value in le.classes_:
+        transaction['ProductID'] = le.transform([combined_value])[0]
+    else:
+        transaction['ProductID'] = -1
+
     return transaction
 
 
@@ -156,21 +178,26 @@ def generate_device_hash_for_transaction(transaction):
 
     
 def generate_additional_transaction_features(transaction):
-    transaction['dow'] = transaction['TransactionDT_date'].weekday()
-    transaction['hour'] = transaction['TransactionDT_date'].hour
-    transaction['email_domain_comp'] = int(transaction['P_emaildomain'] == transaction['R_emaildomain'])
+    transaction['dow'] = transaction['TransactionDT_date'].dt.weekday
+    transaction['hour'] = transaction['TransactionDT_date'].dt.hour
+    transaction['email_domain_comp'] = (transaction['P_emaildomain'] == transaction['R_emaildomain']).astype(int)
+    
     if 'had_id' in transaction.columns:
         transaction['had_id'] = transaction['had_id'].fillna(0)
+        
     return transaction
 
 
 def clean_transaction(transaction):
     drop_cols = ['DeviceInfo', 'device_version', 'DT_D', 'DT_W', 'DT_M', 
-                 'TransactionID','TransactionDT','TransactionDT_date','uid',
+                 'TransactionID', 'TransactionDT', 'TransactionDT_date', 'uid',
                  'device_hash', 'DeviceType', 'browser_id_31']
-    for col in drop_cols:
-        transaction.pop(col, None)
+    
+    # Utilisation de drop pour supprimer les colonnes
+    transaction = transaction.drop(columns=drop_cols, errors='ignore')  # 'ignore' évite les erreurs si certaines colonnes n'existent pas
+    
     return transaction
+
 
 def add_features(transaction):
     transaction = transaction.copy()
@@ -198,9 +225,8 @@ def label_encode_transaction_categorical_features(transaction, train_df, test_df
     return transaction
 
 def coding(df):
-  
     # Charger les mappings
-    with open('../notebooks/mappings.pkl', 'rb') as f:
+    with open('src/mappings.pkl', 'rb') as f:
         mappings = pickle.load(f)
 
     FE_mappings = mappings['frequency_encoding']
@@ -212,25 +238,28 @@ def coding(df):
 
     # 2. Frequency Encoding
     for col_FE, mapping in FE_mappings.items():
-        original_col = col_FE.replace('_FE', '')
-        df[col_FE] = df[original_col].map(mapping).fillna(-999).astype('float32')
+        original_col = col_FE.replace('_FE', '')  # Assurez-vous que la colonne originale existe
+        if original_col in df.columns:
+            df[col_FE] = df[original_col].map(mapping).fillna(-999).astype('float32')
 
     # 3. Combinaison de colonnes
-    df['card1_addr1'] = df['card1'].astype(str) + '_' + df['addr1'].astype(str)
-    df['card1_addr1_P_emaildomain'] = df['card1_addr1'].astype(str) + '_' + df['P_emaildomain'].astype(str)
+    if 'card1' in df.columns and 'addr1' in df.columns:
+        df['card1_addr1'] = df['card1'].astype(str) + '_' + df['addr1'].astype(str)
+        df['card1_addr1_P_emaildomain'] = df['card1_addr1'].astype(str) + '_' + df['P_emaildomain'].astype(str)
 
     # 4. Label Encoding
     for col_LE, uniques in LE_mappings.items():
-        unique_mapping = {v: i for i, v in enumerate(uniques)}
-        df[col_LE] = df[col_LE].map(unique_mapping).fillna(-1).astype('int32')
+        if col_LE in df.columns:
+            unique_mapping = {v: i for i, v in enumerate(uniques)}
+            df[col_LE] = df[col_LE].map(unique_mapping).fillna(-1).astype('int32')
 
     # 5. Group Aggregations
     for col_AG, mapping in AGG_mappings.items():
         base_col = col_AG.split('_')[1]  # Exemple : 'card1' dans 'TransactionAmt_card1_mean'
-        df[col_AG] = df[base_col].map(mapping).fillna(-999).astype('float32')
+        if base_col in df.columns:
+            df[col_AG] = df[base_col].map(mapping).fillna(-999).astype('float32')
 
     return df
-
 
 def generate_transaction_specific_features(df):
     # Calcul du jour (day)
@@ -244,11 +273,11 @@ def generate_transaction_specific_features(df):
 
 def coding2(transaction_df):
   
-    with open('../notebooks/mappings.pkl', 'rb') as f:
+    with open('src/mappings.pkl', 'rb') as f:
         mappings = pickle.load(f)
 
-    FE_mappings = mappings['FE_mappings']
-    AGG_mappings = mappings['AGG_mappings']
+    FE_mappings = mappings['frequency_encoding']
+    AGG_mappings = mappings['aggregation_encoding']
     AGG2_mappings = mappings['AGG2_mappings']
 
     one_transaction = transaction_df.copy()
