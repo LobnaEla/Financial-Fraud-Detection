@@ -1,5 +1,6 @@
 from sklearn.base import BaseEstimator, TransformerMixin
 from src.feature_engineering_functions import *  # import all your feature functions
+from flask import current_app as app
 
 class TransactionFeatureEngineer(BaseEstimator, TransformerMixin):
     def __init__(self):
@@ -8,23 +9,57 @@ class TransactionFeatureEngineer(BaseEstimator, TransformerMixin):
     def fit(self, X, y=None):
         return self
 
+
     def transform(self, X):
         X = X.copy()
+        
+        # Utilisation de app.logger pour afficher les messages dans le terminal
         X = extract_device_info_from_transaction(X)
+        app.logger.info("[INFO] extract_device_info_from_transaction executed")
+        
         X = log_transform_transaction_amt(X)
+        app.logger.info("[INFO] log_transform_transaction_amt executed")
         X = outlier(X)
+        app.logger.info("[INFO] outlier executed")
+        
         X = compute_transaction_date_features(X)
-        X = add_productcd_day_features(X)
+        app.logger.info("[INFO] compute_transaction_date_features executed")
+        
         X = normalize_d_column_times(X)
+        app.logger.info("[INFO] normalize_d_column_times executed")
+        
         X = label_encode_transaction(X)
+        app.logger.info("[INFO] label_encode_transaction executed")
+        
         X = missing(X)
+        app.logger.info("[INFO] missing executed")
+        
         X = coding(X)
+        app.logger.info("[INFO] coding executed")
+        
         X = generate_transaction_specific_features(X)
+        app.logger.info("[INFO] generate_transaction_specific_features executed")
+        
         X = coding2(X)
+        app.logger.info("[INFO] coding2 executed")
+        
         X = add_features(X)
+        app.logger.info("[INFO] add_features executed")
+        
         X = generate_device_hash_for_transaction(X)
+        app.logger.info("[INFO] generate_device_hash_for_transaction executed")
+        
         X = generate_additional_transaction_features(X)
+        app.logger.info("[INFO] generate_additional_transaction_features executed")
+        
         X = alertfeature_transaction(X)
-        X = productid(X)
+        app.logger.info("[INFO] alertfeature_transaction executed")
+        
+        #X = productid(X)
+        #app.logger.info("[INFO] productid executed")
+        
         X = clean_transaction(X)
+        app.logger.info("[INFO] clean_transaction executed")
+        
+        app.logger.info("[INFO] All transformation steps completed.")
         return X
