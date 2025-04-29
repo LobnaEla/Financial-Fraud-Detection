@@ -331,21 +331,18 @@ def full_transaction_feature_engineering(transaction):
 
 # --------------- 2. prediction ---------------
 
-def predict_with_stacking(x):
-    # Charger les modèles
-    x=full_transaction_feature_engineering(x)
-    xgb_model = joblib.load( '../models/xgb_model.pkl')
-    catboost_model = joblib.load('../models/catboost_model.pkl')
-    meta_model = joblib.load('../models/lgb_model.pkl')
-    
-    # 1. Prédictions individuelles
-    xgb_pred = xgb_model.predict_proba(x)[:, 1]  # prédiction de la probabilité positive
-    cat_pred = catboost_model.predict_proba(x)[:, 1]
-    
-    # 2. Préparer les features pour le métamodèle (LightGBM)
-    meta_features = np.column_stack((xgb_pred, cat_pred))  # shape (1, 2)
+def predict_with_stacking(x, xgb_model, catboost_model, meta_model):
+    # Feature Engineering
+    x = full_transaction_feature_engineering(x)
 
-    # 3. Prédiction finale avec le métamodèle
+    # 1. Predictions from base models
+    xgb_pred = xgb_model.predict_proba(x)[:, 1]
+    cat_pred = catboost_model.predict_proba(x)[:, 1]
+
+    # 2. Prepare features for meta-model
+    meta_features = np.column_stack((xgb_pred, cat_pred))
+
+    # 3. Final prediction with meta-model
     final_pred = meta_model.predict(meta_features)
-    
+
     return final_pred
