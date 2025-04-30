@@ -27,8 +27,13 @@ class TransactionFeatureEngineer(BaseEstimator, TransformerMixin):
         
         
         #--------cell26-------
+<<<<<<< HEAD
         X = apply_productcd_day_count(X)
         app.logger.info("[INFO] apply_productcd_day_count")
+=======
+        #X = productid(X)
+        #app.logger.info("[INFO] productid executed")
+>>>>>>> bb96b9035f88080870f876efb03f3311b31c8583
         
 
         X = normalize_d_column_times(X)
@@ -87,6 +92,7 @@ class TransactionFeatureEngineer(BaseEstimator, TransformerMixin):
 
         X = apply_common_values_to_transaction(X)
         app.logger.info("[INFO] apply_common_values_to_transaction executed")
+<<<<<<< HEAD
         X, diffs = compare_and_clean_columns(X)
         app.logger.info(f"Colonnes manquantes : {diffs['missing_columns']}")
         app.logger.info("done")
@@ -94,4 +100,9 @@ class TransactionFeatureEngineer(BaseEstimator, TransformerMixin):
         app.logger.info(f"removed_unexpected_columns : {diffs['removed_unexpected_columns']}")
         app.logger.info("[INFO] All transformation steps completed.")
         app.logger.info(f"Colonnes finales dans X : {list(X.columns)}")
+=======
+
+        app.logger.info("[INFO] All transformation steps completed.")
+
+>>>>>>> bb96b9035f88080870f876efb03f3311b31c8583
         return X

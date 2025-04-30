@@ -163,6 +163,7 @@ def apply_productcd_day_count(transaction):
 
     return transaction
 
+
 def generate_device_hash_for_transaction(transaction):
     features = ['id_30', 'id_31', 'id_32', 'id_33', 'DeviceType', 'DeviceInfo']
     s = ''.join(str(transaction.get(f, '')) for f in features)
