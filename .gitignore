@@ -3,3 +3,7 @@ data/
 LightGBM/
 .venv/
 models/
+src/cross_stats.pkl
+src/crossover_data.pkl
+src/device_counts_mappings.pkl
+src/mappings.pkl
