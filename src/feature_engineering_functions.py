@@ -101,7 +101,7 @@ def normalize_d_column_times(transaction):
         if i in [1, 2, 3, 5, 9]:
             continue
         col = f'D{i}'
-        if col in transaction and not transaction[col].isnull().all():  # vérifier si toute la colonne n'est pas NaN
+        if col in transaction and not transaction[col].isnull().all():  
             transaction[col] = transaction[col] - transaction_dt / np.float32(24 * 60 * 60)
     return transaction
 
@@ -127,48 +127,28 @@ def missing(transaction, fill_value=-999):
 from sklearn.preprocessing import LabelEncoder
 import pickle
 
-import pickle
-
 import pandas as pd
-import pickle
 
-import pandas as pd
-import pickle
+def productid(row):
+    # Chargement du fichier contenant les comptages (peut être adapté à ton chemin final)
+    grouped_df = pd.read_pickle('src/train_grouped.pkl')
 
-def productid(transaction, label_encoder_path='src/productid_labelencoder.pkl'):
-    if transaction is None :
-        raise ValueError("L'entrée doit être une ligne (pd.Series) non nulle.")
-    
-    # Conversion des types de données pour éviter les erreurs avec les modèles
-    # Convertir les dates en timestamp (secondes depuis 1970-01-01)
-    if 'TransactionDT_date' in transaction and isinstance(transaction['TransactionDT_date'], pd.Timestamp):
-        transaction['TransactionDT_date'] = transaction['TransactionDT_date'].timestamp()
+    result = row.copy()
+    product_codes = ['W', 'C', 'R', 'H', 'S']
 
-    # Convertir les colonnes 'uid' et 'device_hash' en catégories (ou les encoder si nécessaire)
-    if 'uid' in transaction and isinstance(transaction['uid'], str):
-        transaction['uid'] = hash(transaction['uid'])  # Ou utiliser LabelEncoder si nécessaire
-    if 'device_hash' in transaction and isinstance(transaction['device_hash'], str):
-        transaction['device_hash'] = hash(transaction['device_hash'])  # Ou LabelEncoder aussi
+    for code in product_codes:
+        col_name = f'ProductCD_{code}_Day'
 
-    # Récupérer les valeurs de manière sûre
-    f1 = str(transaction['TransactionAmt']) if pd.notnull(transaction.get('TransactionAmt')) else ''
-    f2 = str(transaction['ProductCD']) if pd.notnull(transaction.get('ProductCD')) else ''
+        if row['ProductCD'] == code:
+            match = grouped_df[
+                (grouped_df['ProductCD'] == code) &
+                (grouped_df['DT_D'] == row['DT_D'])
+            ]
+            result[col_name] = int(match['isFraud'].values[0]) if not match.empty else 0
+        else:
+            result[col_name] = 0
 
-    combined_value = f1 + '_' + f2
-    transaction['ProductID_raw'] = combined_value
-
-    # Charger le label encoder
-    with open(label_encoder_path, 'rb') as f:
-        le = pickle.load(f)
-
-    # Encoder la combinaison
-    if combined_value in le.classes_:
-        transaction['ProductID'] = le.transform([combined_value])[0]
-    else:
-        transaction['ProductID'] = -1
-
-    return transaction
-
+    return result
 
 def generate_device_hash_for_transaction(transaction):
     features = ['id_30', 'id_31', 'id_32', 'id_33', 'DeviceType', 'DeviceInfo']
@@ -176,25 +156,137 @@ def generate_device_hash_for_transaction(transaction):
     transaction['device_hash'] = hashlib.sha256(s.encode('utf-8')).hexdigest()[:15]
     return transaction
 
-    
+def compute_decimal_digit_for_transaction(transaction):
+    amt = transaction.get('TransactionAmt', 0)
+    amt = np.round(amt, 3)
+    num = 3
+    dec = int(np.round(amt * 1000))
+    while dec % 10 == 0 and num > 0:
+        num -= 1
+        dec = dec // 10
+    transaction['decimal_digit'] = num
+    return transaction
+
+
+
+
+def generate_device_counts_for_transaction(transaction):
+    # Charger les mappings depuis le fichier
+    with open('src/device_counts_mappings.pkl', 'rb') as f:
+        mappings = pickle.load(f)
+
+    # Récupérer les mappings pour uid et device_hash
+    tmp_uid_device = mappings['uid_device_counts']
+    tmp_device_uid = mappings['device_uid_counts']
+
+    # Extraire le uid et device_hash de la transaction
+    uid = transaction['uid']
+    device_hash = transaction['device_hash']
+
+    # Calcul des valeurs pour cette transaction spécifique
+    transaction['uid_device_nunique'] = tmp_uid_device.get(uid, 0)  # Si pas trouvé, retourner 0
+    transaction['device_uid_nunique'] = tmp_device_uid.get(device_hash, 0)  # Si pas trouvé, retourner 0
+
+    return transaction
+  
+
 def generate_additional_transaction_features(transaction):
+    if 'had_id' in transaction.columns:
+        transaction['had_id'] = transaction['had_id'].fillna(0)
     transaction['dow'] = transaction['TransactionDT_date'].dt.weekday
     transaction['hour'] = transaction['TransactionDT_date'].dt.hour
     transaction['email_domain_comp'] = (transaction['P_emaildomain'] == transaction['R_emaildomain']).astype(int)
     
-    if 'had_id' in transaction.columns:
-        transaction['had_id'] = transaction['had_id'].fillna(0)
+    
         
     return transaction
 
 
-def clean_transaction(transaction):
-    drop_cols = ['DeviceInfo', 'device_version', 'DT_D', 'DT_W', 'DT_M', 
-                 'TransactionID', 'TransactionDT', 'TransactionDT_date', 'uid',
-                 'device_hash', 'DeviceType', 'browser_id_31']
+
+
+
+
+def add_day_hour_counts(transaction):
+    import pickle
+
+    # Charger les mappings sauvegardés
+    with open('src/day_hour_counts.pkl', 'rb') as f:
+        mappings = pickle.load(f)
+
+    day_mapping = mappings['day_count']
+    hour_mapping = mappings['hour_count']
+
+    # Extraire les clefs à partir de la date pour une seule ligne
+    date_obj = transaction['TransactionDT_date'].iloc[0]  # Accéder à la première valeur (scalaire)
     
-    # Utilisation de drop pour supprimer les colonnes
-    transaction = transaction.drop(columns=drop_cols, errors='ignore')  # 'ignore' évite les erreurs si certaines colonnes n'existent pas
+    # Vérifier que date_obj est bien de type datetime
+    if isinstance(date_obj, pd.Timestamp): 
+        day_key = date_obj.date()
+        hour_key = date_obj.strftime('%Y-%m-%d %H')
+        
+        # Ajouter les features
+        transaction['day_count'] = day_mapping.get(day_key, 0)
+        transaction['hour_count'] = hour_mapping.get(hour_key, 0)
+    else:
+        # Si la valeur n'est pas un Timestamp, on peut mettre des valeurs par défaut
+        transaction['day_count'] = 0
+        transaction['hour_count'] = 0
+
+    return transaction
+
+
+
+
+def apply_count_encoding_to_transaction(transaction):
+    import pickle
+    import numpy as np
+
+    # Charger les mappings depuis le fichier
+    with open('src/count_mappings.pkl', 'rb') as f:
+        count_mappings = pickle.load(f)
+
+    for col, mapping in count_mappings.items():
+        # Récupérer la valeur dans la colonne pour cette ligne spécifique
+        value = transaction[col].iloc[0] if col in transaction else np.nan
+        
+        # Appliquer le count encoding
+        transaction[col + '_count_full'] = mapping.get(value, 0)
+
+    return transaction
+
+
+def clean_transaction(transaction):
+    import pickle
+
+    # Charger les colonnes à supprimer depuis le fichier pickle
+    with open('src/drop_columns.pkl', 'rb') as f:
+        drop_cols = pickle.load(f)
+    
+    # Ajouter les colonnes à supprimer manuellement
+    drop_cols += ['TransactionID','device_hash','TransactionDT', 'TransactionDT_date', 'uid']
+
+    # Supprimer les colonnes du DataFrame
+    transaction = transaction.drop(columns=drop_cols, errors='ignore')
+
+    return transaction
+
+
+def apply_common_values_to_transaction(transaction):
+    import pickle
+    import numpy as np
+
+    # Charger les valeurs communes sauvegardées
+    with open('src/common_values.pkl', 'rb') as f:
+        common_values = pickle.load(f)
+
+    # Pour chaque colonne dans 'cat', appliquer la transformation
+    for column, common_set in common_values.items():
+        # Utiliser .iloc[0] pour obtenir la première valeur scalaire
+        value = transaction[column].iloc[0] if column in transaction else np.nan
+
+        # Vérifier si la valeur est dans le set des valeurs communes
+        if value not in common_set:
+            transaction[column] = -999  # Remplacer les valeurs non communes par -999
     
     return transaction
 
@@ -205,6 +297,120 @@ def add_features(transaction):
     transaction['first_tran'] = transaction['DT_D'] - transaction['D2']
     return transaction
 
+import pickle
+import hashlib
+
+def process_product_id_for_transaction(transaction):
+    # Charger le LabelEncoder et le count mapping
+    with open('src/productid_all.pkl', 'rb') as f:
+        productid_data = pickle.load(f)
+    
+    le = productid_data['label_encoder']
+    count_mapping = productid_data['count_mapping']
+    
+    # Construire la clé combinée
+    combined = str(transaction['TransactionAmt']) + '_' + str(transaction['ProductCD'])
+    
+    # Transformer en ProductID encodé
+    if combined in le.classes_:
+        product_id = le.transform([combined])[0]
+    else:
+        product_id = -1  # ou un code spécial si inconnu
+    transaction['ProductID'] = product_id
+
+    # Ajouter le count
+    transaction['ProductID_count_full'] = count_mapping.get(product_id, 0)
+
+    return transaction
+
+
+
+def apply_cross_stats(transaction):
+    # Charger les mappings sauvegardés
+    with open('src/cross_stats.pkl', 'rb') as f:
+        cross_stats = pickle.load(f)
+
+    # Définir les features continues et catégorielles utilisées dans le mapping
+    con_fea = ['V258','C1','C14','C13','TransactionAmt','D15','D2','id_02','dist1','V294','C11']
+    cat_fea = ['card1','card2','addr1','card4','R_emaildomain','P_emaildomain','ProductID','uid']
+
+    # Appliquer les moyennes et écarts-types groupés
+    for cont in con_fea:
+        # Assurer que cont_val est bien un scalaire et non une série
+        cont_val = transaction.get(cont, np.nan)
+        if isinstance(cont_val, pd.Series):
+            cont_val = cont_val.iloc[0]  # Si c'est une Series, prend la première valeur
+
+        # Si cont_val vaut -999, on le remplace par NaN
+        if cont_val == -999:
+            cont_val = np.nan
+        
+        for cat in cat_fea:
+            cat_val = transaction.get(cat, np.nan)
+            if isinstance(cat_val, pd.Series):
+                cat_val = cat_val.iloc[0]  # Assurer que cat_val est un scalaire
+            
+            mean_key = f"{cont}_{cat}_mean"
+            std_key = f"{cont}_{cat}_std"
+
+            # Appliquer les stats de cross-mapping
+            transaction[mean_key] = cross_stats.get(mean_key, {}).get(cat_val, np.nan)
+            transaction[std_key] = cross_stats.get(std_key, {}).get(cat_val, np.nan)
+
+    return transaction
+
+
+def apply_crossover_features_to_transaction(transaction):
+    # Charger les objets sauvegardés
+    with open("src/crossover_data.pkl", "rb") as f:
+        data = pickle.load(f)
+
+    label_encoders = data['label_encoders']
+    cross_counts = data['cross_counts']
+
+    # Liste des combinaisons à traiter (doit être cohérente avec celle utilisée à l'entraînement)
+    temp = ['DeviceInfo__P_emaildomain', 
+            'card1__card5', 
+            'card2__id_20',
+            'card5__P_emaildomain', 
+            'addr1__card1',
+            'addr1__addr2',
+            'card1__card2',
+            'card2__addr1',
+            'card1__P_emaildomain',
+            'card2__P_emaildomain',
+            'addr1__P_emaildomain',
+            'DeviceInfo__id_31',
+            'DeviceInfo__id_20',
+            'DeviceType__id_31',
+            'DeviceType__id_20',
+            'DeviceType__P_emaildomain',
+            'card1__M4',
+            'card2__M4',
+            'addr1__M4',
+            'P_emaildomain__M4',
+            'uid__ProductID',
+            'uid__DeviceInfo']
+
+    # Appliquer concaténation + encodage + count
+    for feature in temp:
+        f1, f2 = feature.split('__')
+        val = str(transaction.get(f1, 'nan')) + '_' + str(transaction.get(f2, 'nan'))
+
+        # Encoder avec le label encoder correspondant
+        le = label_encoders.get(feature)
+        if le is not None and val in le.classes_:
+            encoded_val = le.transform([val])[0]
+        else:
+            encoded_val = -1  # valeur inconnue
+
+        transaction[feature] = encoded_val
+
+        # Ajouter la feature "_count_full"
+        count_dict = cross_counts.get(feature, {})
+        transaction[feature + '_count_full'] = count_dict.get(encoded_val, 0)
+
+    return transaction
 
 
 def label_encode_transaction_categorical_features(transaction, train_df, test_df):
@@ -224,7 +430,7 @@ def label_encode_transaction_categorical_features(transaction, train_df, test_df
 
     return transaction
 
-def coding(df):
+def coding(transaction):
     # Charger les mappings
     with open('src/mappings.pkl', 'rb') as f:
         mappings = pickle.load(f)
@@ -234,32 +440,33 @@ def coding(df):
     AGG_mappings = mappings['aggregation_encoding']
 
     # 1. Feature "cents"
-    df['cents'] = (df['TransactionAmt'] - np.floor(df['TransactionAmt'])).astype('float32')
+    transaction['cents'] = (transaction['TransactionAmt'] - np.floor(transaction['TransactionAmt'])).astype('float32')
 
     # 2. Frequency Encoding
     for col_FE, mapping in FE_mappings.items():
         original_col = col_FE.replace('_FE', '')  # Assurez-vous que la colonne originale existe
-        if original_col in df.columns:
-            df[col_FE] = df[original_col].map(mapping).fillna(-999).astype('float32')
+        if original_col in transaction.columns:
+            transaction[col_FE] = transaction[original_col].map(mapping).fillna(-999).astype('float32')
 
-    # 3. Combinaison de colonnes
-    if 'card1' in df.columns and 'addr1' in df.columns:
-        df['card1_addr1'] = df['card1'].astype(str) + '_' + df['addr1'].astype(str)
-        df['card1_addr1_P_emaildomain'] = df['card1_addr1'].astype(str) + '_' + df['P_emaildomain'].astype(str)
+    # 3. Combinaison de colonnes (Si les colonnes existent)
+    if 'card1' in transaction.columns and 'addr1' in transaction.columns:
+        transaction['card1_addr1'] = transaction['card1'].astype(str) + '_' + transaction['addr1'].astype(str)
+        transaction['card1_addr1_P_emaildomain'] = transaction['card1_addr1'].astype(str) + '_' + transaction['P_emaildomain'].astype(str)
 
     # 4. Label Encoding
     for col_LE, uniques in LE_mappings.items():
-        if col_LE in df.columns:
+        if col_LE in transaction.columns:
             unique_mapping = {v: i for i, v in enumerate(uniques)}
-            df[col_LE] = df[col_LE].map(unique_mapping).fillna(-1).astype('int32')
+            transaction[col_LE] = transaction[col_LE].map(unique_mapping).fillna(-1).astype('int32')
 
     # 5. Group Aggregations
     for col_AG, mapping in AGG_mappings.items():
         base_col = col_AG.split('_')[1]  # Exemple : 'card1' dans 'TransactionAmt_card1_mean'
-        if base_col in df.columns:
-            df[col_AG] = df[base_col].map(mapping).fillna(-999).astype('float32')
+        if base_col in transaction.columns:
+            transaction[col_AG] = transaction[base_col].map(mapping).fillna(-999).astype('float32')
 
-    return df
+    return transaction
+
 
 def generate_transaction_specific_features(df):
     # Calcul du jour (day)
@@ -284,7 +491,7 @@ def coding2(transaction_df):
 
     # 1. Frequency Encoding uniquement pour 'uid'
     if 'uid_FE' in FE_mappings:
-        one_transaction['uid_FE'] = one_transaction['uid'].map(FE_mappings['uid_FE']).astype('float32')
+        one_transaction['uid_FE'] = one_transaction['uid'].map(FE_mappings['uid_FE']).fillna(-999).astype('float32')
     
     # 2. AGG TransactionAmt, D4, D9, D10, D15 sur uid (mean et std)
     columns_agg1 = ['TransactionAmt', 'D4', 'D9', 'D10', 'D15']
@@ -292,7 +499,7 @@ def coding2(transaction_df):
         for agg in ['mean', 'std']:
             col_name = f"{col}_uid_{agg}"
             if col_name in AGG_mappings:
-                one_transaction[col_name] = one_transaction['uid'].map(AGG_mappings[col_name]).astype('float32')
+                one_transaction[col_name] = one_transaction['uid'].map(AGG_mappings[col_name]).fillna(-999).astype('float32')
 
     # 3. AGG C1-C14 sauf C3 sur uid (mean)
     for x in range(1, 15):
@@ -300,37 +507,37 @@ def coding2(transaction_df):
             col = f"C{x}"
             col_name = f"{col}_uid_mean"
             if col_name in AGG_mappings:
-                one_transaction[col_name] = one_transaction['uid'].map(AGG_mappings[col_name]).astype('float32')
+                one_transaction[col_name] = one_transaction['uid'].map(AGG_mappings[col_name]).fillna(-999).astype('float32')
 
     # 4. AGG M1-M9 sur uid (mean)
     for x in range(1, 10):
         col = f"M{x}"
         col_name = f"{col}_uid_mean"
         if col_name in AGG_mappings:
-            one_transaction[col_name] = one_transaction['uid'].map(AGG_mappings[col_name]).astype('float32')
+            one_transaction[col_name] = one_transaction['uid'].map(AGG_mappings[col_name]).fillna(-999).astype('float32')
 
     # 5. AGG2 P_emaildomain, dist1, DT_M, id_02, cents sur uid (nunique count)
     columns_agg2_1 = ['P_emaildomain', 'dist1', 'DT_M', 'id_02', 'cents']
     for col in columns_agg2_1:
         new_col = f"uid_{col}_ct"
         if new_col in AGG2_mappings:
-            one_transaction[new_col] = one_transaction['uid'].map(AGG2_mappings[new_col]).astype('float32')
+            one_transaction[new_col] = one_transaction['uid'].map(AGG2_mappings[new_col]).fillna(-999).astype('float32')
 
     # 6. AGG C14 sur uid (std)
     if 'C14_uid_std' in AGG_mappings:
-        one_transaction['C14_uid_std'] = one_transaction['uid'].map(AGG_mappings['C14_uid_std']).astype('float32')
+        one_transaction['C14_uid_std'] = one_transaction['uid'].map(AGG_mappings['C14_uid_std']).fillna(-999).astype('float32')
 
     # 7. AGG2 C13, V314 sur uid (nunique count)
     for col in ['C13', 'V314']:
         new_col = f"uid_{col}_ct"
         if new_col in AGG2_mappings:
-            one_transaction[new_col] = one_transaction['uid'].map(AGG2_mappings[new_col]).astype('float32')
+            one_transaction[new_col] = one_transaction['uid'].map(AGG2_mappings[new_col]).fillna(-999).astype('float32')
 
     # 8. AGG2 V127, V136, V309, V307, V320 sur uid (nunique count)
     for col in ['V127', 'V136', 'V309', 'V307', 'V320']:
         new_col = f"uid_{col}_ct"
         if new_col in AGG2_mappings:
-            one_transaction[new_col] = one_transaction['uid'].map(AGG2_mappings[new_col]).astype('float32')
+            one_transaction[new_col] = one_transaction['uid'].map(AGG2_mappings[new_col]).fillna(-999).astype('float32')
 
     # 9. Créer outsider15
     one_transaction['outsider15'] = (np.abs(one_transaction['D1'] - one_transaction['D15']) > 3).astype('int8')
