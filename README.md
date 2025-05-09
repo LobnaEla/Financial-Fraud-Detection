@@ -31,13 +31,11 @@ Credit card fraud is a serious and growing problem in the financial world. The o
 ## ⚙️ Tech Stack
 
 - **Python**
-- **scikit-learn**: for preprocessing and modeling (Logistic Regression, Random Forest, XGBoost, etc.)
+- **scikit-learn**: for preprocessing and modeling
 - **Flask**: backend server to expose the model via an API
-- **HTML/CSS + JS (optional)**: simple web interface
+- **HTML/CSS + JS**: simple web interface
 - **Pandas / NumPy**: data manipulation
 - **Matplotlib / Seaborn**: data visualization
-- **ClickUp**: project management
-- **Docker** (optional): for containerized deployment
 
 ---
 
