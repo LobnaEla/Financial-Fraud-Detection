@@ -1,6 +1,6 @@
 # 💳 Financial Fraud Detection using Machine Learning
 
-This project focuses on detecting fraudulent credit card transactions using machine learning. It includes a complete ML pipeline with data preprocessing, advanced feature engineering, model training and evaluation, a RESTful Flask API, and a simple web interface for testing transactions in real-time.
+This project focuses on detecting fraudulent credit card transactions using machine learning. It includes a complete ML pipeline with data preprocessing, advanced feature engineering, model training and evaluation, a RESTful Flask API, and a simple web interface for testing transactions.
 
 ---
 
