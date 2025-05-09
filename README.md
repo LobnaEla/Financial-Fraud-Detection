@@ -1,39 +1,54 @@
-## 🚀 Progression du Modèle
+# 💳 Financial Fraud Detection using Machine Learning
 
-Voici notre progression tout au long du projet :
+This project focuses on detecting fraudulent credit card transactions using machine learning. It includes a complete ML pipeline with data preprocessing, advanced feature engineering, model training and evaluation, a RESTful Flask API, and a simple web interface for testing transactions in real-time.
 
-**AUC Score**
+---
 
-| **Feature Engineering**       | **XGBoost**        | **Cat Boost**      | **LGBM** |
-| ----------------------------- | ------------------ | ------------------ | -------- |
-| Baseline model                | 0.9446614696303043 | 0.9570346773659776 | 0.0      |
-| Baseline + SMOTE + ACP        | 0.87689            | 0.8619             | 0        |
-| Baseline + Frequency Encoding | 0.9427600333410997 | 0.9277747528642826 | 0.       |
-| Baseline + Target Encoding    | 0.9999696469007457 | 0.9999763768410286 | 0.       |
+## 📌 Table of Contents
 
-**XGBoost**
+- [Project Overview](#project-overview)
+- [Tech Stack](#tech-stack)
+- [Installation](#installation)
+- [How It Works](#how-it-works)
+- [Usage](#usage)
+- [Model Performance](#model-performance)
+- [Screenshots](#screenshots)
+- [License](#license)
 
-| **Feature Engineering**       | **AUC**            | **F1** | **Recall** | **Precision** |
-| ----------------------------- | ------------------ | ------ | ---------- | ------------- |
-| Baseline model                | 0.9446614696303043 | 0.6332 | 0.4887     | 0.8994        |
-| Baseline + SMOTE + ACP        | 0.87689            | 0.     | 0          | 0.0           |
-| Baseline + Frequency Encoding | 0.9427600333410997 | 0.     | 0.         | 0.            |
-| Baseline + Target Encoding    | 0.9999696469007457 | 0.9833 | 0.9833     | 0.9833        |
+---
 
-**CatBoost**
+## 🧠 Project Overview
 
-| **Feature Engineering**       | **AUC**            | **F1** | **Recall** | **Precision** |
-| ----------------------------- | ------------------ | ------ | ---------- | ------------- |
-| Baseline model                | 0.9570346773659776 | 0.6182 | 0.4823     | 0.8618        |
-| Baseline + SMOTE + ACP        | 0.8619             | 0.329  | 0.5446     | 0.2393        |
-| Baseline + Frequency Encoding | 0.9277747528642826 | 0.     | 0.         | 0.            |
-| Baseline + Target Encoding    | 0.9999763768410286 | 0.9848 | 0.9829     | 0.9868        |
+Credit card fraud is a serious and growing problem in the financial world. The objective of this project is to:
 
-**LGBM**
+- Detect suspicious credit card transactions using a supervised ML model.
+- Apply **feature engineering techniques** to extract meaningful patterns from raw transaction data.
+- Provide an interface to interact with the model via a Flask API and a web interface.
+- Evaluate model performance using metrics like precision, recall, F1-score, and ROC AUC.
 
-| **Feature Engineering**       | **AUC** | **F1** | **Recall** | **Precision** |
-| ----------------------------- | ------- | ------ | ---------- | ------------- |
-| Baseline model)               | 0.      | 0.0    | 0.0        | 0.0           |
-| Baseline + ACP                | 0       | 0.     | 0          | 0.0           |
-| Baseline + Frequency Encoding | 0.      | 0.     | 0.         | 0.            |
-| Baseline + Target Encoding    | 0.      | 0.     | 0.         | 0.            |
+---
+
+## ⚙️ Tech Stack
+
+- **Python**
+- **scikit-learn**: for preprocessing and modeling (Logistic Regression, Random Forest, XGBoost, etc.)
+- **Flask**: backend server to expose the model via an API
+- **HTML/CSS + JS (optional)**: simple web interface
+- **Pandas / NumPy**: data manipulation
+- **Matplotlib / Seaborn**: data visualization
+- **ClickUp**: project management
+- **Docker** (optional): for containerized deployment
+
+---
+
+## 🧰 Feature Engineering
+
+To improve model performance, the project includes several feature engineering steps:
+
+- **Date & Time transformations**: extracting hour of day, weekday, etc.
+- **User behavior metrics**: e.g., average transaction amount per user, transaction frequency.
+- **Device/browser aggregation features**
+- **Transaction pattern analysis**: such as amount relative to user mean, time since last transaction, etc.
+- **Encoding & scaling**: categorical encoding and standardization using a custom scikit-learn pipeline.
+
+These engineered features helped enhance the model’s ability to detect subtle fraud patterns.
