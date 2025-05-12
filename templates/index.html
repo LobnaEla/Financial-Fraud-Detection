@@ -1,0 +1,65 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Détection de Fraude Financière</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+    <div class="container">
+        <h1>Détection de Transactions Frauduleuses</h1>
+
+        <div class="tabs">
+            <div class="tab active" data-tab="csv">CSV</div>
+            <div class="tab" data-tab="json">JSON</div>
+        </div>
+
+        <div id="csvTab" class="tab-content">
+            <textarea id="csvInput" placeholder="amount,time,v1,v2,...\n123.45,86400,-1.3598,-0.0727,..."></textarea>
+
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <!-- Nouveau : Bouton pour importer un CSV -->
+                <input type="file" id="csvFile" accept=".csv" style="flex: 1;">
+                <button onclick="clearCSVSection()">Clear CSV</button>
+                <button id="submitCsv">Vérifier la transaction</button>
+
+            </div>
+        </div>
+
+
+        <div id="jsonTab" class="tab-content">
+            <textarea id="jsonInput"
+                placeholder='{"amount": 123.45, "time": 86400, "v1": -1.3598, "v2": -0.0727, ...}'></textarea>
+
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <!-- Nouveau : Bouton pour importer un JSON -->
+                <input type="file" id="jsonFile" accept=".json" style="flex: 1;">
+                <button onclick="clearJSONSection()">Clear JSON</button>
+                <button id="submitJson">Vérifier la transaction</button>
+            </div>
+        </div>
+
+
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>Analyse en cours...</p>
+        </div>
+
+        <div id="result" class="result">
+            <h3 id="resultTitle"></h3>
+            <p id="resultMessage"></p>
+        </div>
+
+        <!-- <div id="apiStatus" class="api-status">
+            Vérification de l'état de l'API...
+        </div> -->
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+
+</html>
