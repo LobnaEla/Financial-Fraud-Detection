@@ -1,39 +1,52 @@
-## 🚀 Progression du Modèle
+# 💳 Financial Fraud Detection
 
-Voici notre progression tout au long du projet :
+This project aims to detect fraudulent online financial transactions using advanced machine learning models. Built on the IEEE-CIS Fraud Detection dataset, the solution is designed to identify anomalies with high precision and usability.
 
-**AUC Score**
+---
 
-| **Feature Engineering**       | **XGBoost**        | **Cat Boost**      | **LGBM** |
-| ----------------------------- | ------------------ | ------------------ | -------- |
-| Baseline model                | 0.9446614696303043 | 0.9570346773659776 | 0.0      |
-| Baseline + SMOTE + ACP        | 0.87689            | 0.8619             | 0        |
-| Baseline + Frequency Encoding | 0.9427600333410997 | 0.9277747528642826 | 0.       |
-| Baseline + Target Encoding    | 0.9999696469007457 | 0.9999763768410286 | 0.       |
+## 🎯 Project Goals
 
-**XGBoost**
+- Detect fraud in financial transactions with minimal false positives/negatives
+- Handle imbalanced datasets using robust evaluation metrics (F1-score, AUC)
+- Build a modular and explainable feature pipeline
+- Deploy the model through a web server and user-friendly interface
 
-| **Feature Engineering**       | **AUC**            | **F1** | **Recall** | **Precision** |
-| ----------------------------- | ------------------ | ------ | ---------- | ------------- |
-| Baseline model                | 0.9446614696303043 | 0.6332 | 0.4887     | 0.8994        |
-| Baseline + SMOTE + ACP        | 0.87689            | 0.     | 0          | 0.0           |
-| Baseline + Frequency Encoding | 0.9427600333410997 | 0.     | 0.         | 0.            |
-| Baseline + Target Encoding    | 0.9999696469007457 | 0.9833 | 0.9833     | 0.9833        |
+---
 
-**CatBoost**
+## 🧠 Project Highlights
 
-| **Feature Engineering**       | **AUC**            | **F1** | **Recall** | **Precision** |
-| ----------------------------- | ------------------ | ------ | ---------- | ------------- |
-| Baseline model                | 0.9570346773659776 | 0.6182 | 0.4823     | 0.8618        |
-| Baseline + SMOTE + ACP        | 0.8619             | 0.329  | 0.5446     | 0.2393        |
-| Baseline + Frequency Encoding | 0.9277747528642826 | 0.     | 0.         | 0.            |
-| Baseline + Target Encoding    | 0.9999763768410286 | 0.9848 | 0.9829     | 0.9868        |
+- **Data preprocessing**: Merging identity and transaction datasets, handling missing values, normalizing variables
+- **Feature engineering**:
+  - Outlier detection
+  - Time-based fraud alerts
+  - Device and user profiling
+  - Behavioral indicators (e.g., decimal precision, email mismatch)
+- **Model Architecture**
+  - Base Models: XGBoost, CatBoost
+  - Meta-Model: LightGBM (Stacking approach)
+  - Validation: 5-fold cross-validation
+- **Performance**:
+  - F1-score: **0.89**
+  - Recall: **0.87**
+  - Precision: **0.91**
+  - AUC: **0.98**
 
-**LGBM**
+---
 
-| **Feature Engineering**       | **AUC** | **F1** | **Recall** | **Precision** |
-| ----------------------------- | ------- | ------ | ---------- | ------------- |
-| Baseline model)               | 0.      | 0.0    | 0.0        | 0.0           |
-| Baseline + ACP                | 0       | 0.     | 0          | 0.0           |
-| Baseline + Frequency Encoding | 0.      | 0.     | 0.         | 0.            |
-| Baseline + Target Encoding    | 0.      | 0.     | 0.         | 0.            |
+## 📁 Project Folder Overview
+
+- `api/`: Contains Flask server logic and prediction endpoint
+- `models/`: Trained models (XGBoost, CatBoost, LightGBM)
+- `notebooks/`: Jupyter notebooks for EDA, modeling, and deployment
+- `src/`: Preprocessing scripts, encoders, and transformation logic
+- `static/` & `templates/`: Frontend interface (HTML/CSS/JS)
+- `build_pipeline.py`: Builds the data processing pipeline
+- `requirements.txt`: Python dependencies
+
+---
+
+## 📚 Dataset
+
+**IEEE-CIS Fraud Detection Dataset**  
+🔗 Available on [Kaggle](https://www.kaggle.com/c/ieee-fraud-detection/data)
+
